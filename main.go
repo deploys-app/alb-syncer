@@ -128,9 +128,9 @@ type Worker struct {
 	CertificateMap string
 
 	lastPending    time.Time
-	pendingRunning uint32
+	pendingRunning atomic.Uint32
 	lastStatus     time.Time
-	statusRunning  uint32
+	statusRunning  atomic.Uint32
 }
 
 func (w *Worker) Run() {
@@ -161,21 +161,21 @@ func (w *Worker) Run() {
 		}
 	}
 
-	if atomic.LoadUint32(&w.pendingRunning) == 0 && time.Since(w.lastPending) >= 10*time.Second {
+	if w.pendingRunning.Load() == 0 && time.Since(w.lastPending) >= 10*time.Second {
 		w.lastPending = time.Now()
 		go func() {
-			atomic.StoreUint32(&w.pendingRunning, 1)
-			defer atomic.StoreUint32(&w.pendingRunning, 0)
+			w.pendingRunning.Store(1)
+			defer w.pendingRunning.Store(0)
 
 			w.runStatusVerify()
 		}()
 	}
 
-	if atomic.LoadUint32(&w.statusRunning) == 0 && time.Since(w.lastStatus) > 6*time.Hour {
+	if w.statusRunning.Load() == 0 && time.Since(w.lastStatus) > 6*time.Hour {
 		w.lastStatus = time.Now()
 		go func() {
-			atomic.StoreUint32(&w.statusRunning, 1)
-			defer atomic.StoreUint32(&w.statusRunning, 0)
+			w.statusRunning.Store(1)
+			defer w.statusRunning.Store(0)
 
 			w.runStatus()
 		}()
